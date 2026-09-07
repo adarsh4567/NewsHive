@@ -1,7 +1,7 @@
 from analyst.state import AgentState
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage,HumanMessage
-from analyst.investment_analyzer.tools.yfinance_tool import recent_news
+from analyst.investment_analyzer.utils.yfinance_tool import recent_news
 from dotenv import load_dotenv
 load_dotenv()
 import os
@@ -42,7 +42,7 @@ def _format_stock_report(stockReport: dict) -> str:
     return '\n'.join(formatted)
 
 
-investment_llm = llm.bind_tools([recent_news])
+investment_llm = llm
 
 async def investment_node(state: AgentState) -> AgentState:
     """
@@ -54,7 +54,7 @@ async def investment_node(state: AgentState) -> AgentState:
     """
     
     # Ensure both upstream nodes have completed
-    if not (state['sentimentflag'] and state["entityflag"]):
+    if not (state.get('sentimentflag', False) and state.get('entityflag', False)):
         # Not ready yet - wait for upstream nodes
         return {}
     
@@ -65,11 +65,8 @@ async def investment_node(state: AgentState) -> AgentState:
     stockReport = state["stockReport"]
     messages = state["messages"]
     
-    # # Validate we have necessary data
-    if not tickers or not stockReport:
-        return {
-            "advice": "ERROR: Insufficient data. Cannot give advice"
-        }
+    news_results = await recent_news(tickers)
+    recent_news_data = news_results["recentnews"]
     
     # # STAGE 1: Initialize conversation with data
     
@@ -83,6 +80,8 @@ async def investment_node(state: AgentState) -> AgentState:
                 **Sectors:** {sectors}
 
                 **Current Sentiment:** {sentiment}
+
+                **Recent News:** {recent_news_data}
 
                 **Stock Report (Financial Metrics):**
                 {_format_stock_report(stockReport)}
@@ -100,10 +99,12 @@ async def investment_node(state: AgentState) -> AgentState:
 
     if not response.tool_calls:
         return {
-            "advice": raw_response
+            "advice": raw_response,
+            "recentnews": recent_news_data
         }
     
     
     return {
-       "messages":messages 
+       "messages":messages,
+       "recentnews":recent_news_data 
     }

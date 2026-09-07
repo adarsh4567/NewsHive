@@ -1,0 +1,136 @@
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Project: Financial Agent — Drift Detection Batch Processing
+# Stack:   Apache Spark (Standalone Cluster) — Manual Job Submission
+#
+# Usage:
+#   1. Start cluster:  docker compose -f docker-compose.spark.yml up -d
+#   2. Submit a job:   docker compose -f docker-compose.spark.yml run --rm spark-submit \
+#                        spark-submit \
+#                        --master spark://spark-master:7077 \
+#                        /spark-jobs/your_job.py
+#   3. View logs:      docker compose -f docker-compose.spark.yml logs -f spark-master
+#   4. Web UI:         http://localhost:8080
+#   5. Teardown:       docker compose -f docker-compose.spark.yml down
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  spark-net:
+    driver: bridge
+
+volumes:
+  spark-logs:
+
+services:
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SPARK MASTER
+  # Web UI: http://localhost:8080
+  # Internal RPC port: 7077 (workers + spark-submit connect here)
+  # ─────────────────────────────────────────────────────────────────────────────
+  spark-master:
+    build:
+      context: ./spark-jobs
+      dockerfile: Dockerfile
+    container_name: spark-master
+    networks:
+      - spark-net
+    ports:
+      - "8080:8080"   # Spark Web UI
+      - "7077:7077"   # Spark Master RPC (for job submission)
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+      - SPARK_MASTER_WEBUI_PORT=8080
+      # Pass your AWS credentials into the cluster so Spark can read/write S3
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+    volumes:
+      - ./spark-jobs:/spark-jobs          # Mount your PySpark scripts here
+      - spark-logs:/opt/bitnami/spark/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080 > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 20s
+    restart: unless-stopped
+
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SPARK WORKER
+  # Executes the actual tasks. Scale this up with --scale spark-worker=N
+  # to simulate a real multi-node cluster.
+  # ─────────────────────────────────────────────────────────────────────────────
+  spark-worker:
+    build:
+      context: ./spark-jobs
+      dockerfile: Dockerfile
+    container_name: spark-worker
+    networks:
+      - spark-net
+    ports:
+      - "8081:8081"   # Worker Web UI (shows tasks, memory, cores)
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+      # Pass AWS credentials to workers too — they do the actual S3 I/O
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+    volumes:
+      - ./spark-jobs:/spark-jobs          # Same mount — workers need script access
+      - spark-logs:/opt/bitnami/spark/logs
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    restart: unless-stopped
+
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SPARK SUBMIT — On-demand job submitter
+  #
+  # This is NOT a long-running service. You run it with `docker compose run --rm`
+  # to submit a specific PySpark job to the cluster.
+  #
+  # Example:
+  #   docker compose -f docker-compose.spark.yml run --rm spark-submit \
+  #     spark-submit \
+  #     --master spark://spark-master:7077 \
+  #     --packages org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262 \
+  #     /spark-jobs/job1_flatten_raw.py
+  # ─────────────────────────────────────────────────────────────────────────────
+  spark-submit:
+    build:
+      context: ./spark-jobs
+      dockerfile: Dockerfile
+    container_name: spark-submit
+    networks:
+      - spark-net
+    environment:
+      - SPARK_MODE=client
+      - HOME=/tmp                           # Required: fixes Ivy "basedir must be absolute" error
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-your-bucket}
+    volumes:
+      - ./spark-jobs:/spark-jobs          # Your PySpark scripts
+    depends_on:
+      spark-master:
+        condition: service_healthy
+      spark-worker:
+        condition: service_started
+    # No restart — this is a one-shot command container
+    entrypoint: [""]                      # Override so you can pass any command
+    command: ["echo", "spark-submit container ready. Use: docker compose run --rm spark-submit spark-submit ..."]

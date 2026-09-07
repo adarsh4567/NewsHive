@@ -39,6 +39,8 @@ async def entity_node(state: AgentState) -> AgentState:
     response = await enitity_llm.ainvoke(messages)
     messages.append(response)
     raw_response = response.content
+    if isinstance(raw_response, list):
+        raw_response = "".join(part.get("text", "") if isinstance(part, dict) else str(part) for part in raw_response)
     state["messages"] = messages
 
     # Ready with final Response

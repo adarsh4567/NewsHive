@@ -17,6 +17,11 @@ dependencies = [
     "torch>=2.8.0",
     "transformers>=4.56.2",
     "yfinance>=0.2.66",
+    "sentencepiece>=0.2.0",
+    "tiktoken>=0.8.0",
+    "uvicorn>=0.52.1",
+    "sse-starlette>=3.3.4",
+    "boto3>=1.43.89",
 ]
 
 [tool.setuptools]

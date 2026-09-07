@@ -1,0 +1,577 @@
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Project: News Interest Platform
+# Replaces: Kubernetes (Flink Operator, Strimzi Kafka, k8s services)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+networks:
+  platform-net:
+    driver: bridge
+
+volumes:
+  mongodb-data:
+  redis-data:
+  postgres-data:
+  flink-checkpoints:
+
+services:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # ZOOKEEPER (Kafka dependency)
+  # ───────────────────────────────────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    networks:
+      - platform-net
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # KAFKA (single broker, replaces 3-broker Strimzi cluster)
+  # ───────────────────────────────────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    networks:
+      - platform-net
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # KAFKA TOPIC INITIALIZER
+  # Creates required topics: user-events, output-signal, output-group-signals
+  # ───────────────────────────────────────────────────────────────────────────
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-init
+    networks:
+      - platform-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./scripts/init-kafka-topics.sh:/init-kafka-topics.sh
+    entrypoint: ["/bin/bash", "/init-kafka-topics.sh"]
+    environment:
+      KAFKA_HOST: kafka
+      KAFKA_PORT: "9092"
+    restart: "no"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # MONGODB (Configured as Replica Set for CDC)
+  # ───────────────────────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    networks:
+      - platform-net
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: flinkdb
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  mongo-init-replica:
+    image: mongo:7
+    container_name: mongo-init-replica
+    networks:
+      - platform-net
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    command: >
+      bash -c "sleep 5 && mongosh --host mongodb -u admin -p password --authenticationDatabase admin --eval \"rs.initiate({ _id: 'rs0', members: [ { _id: 0, host: 'mongodb:27017' } ] })\" || true"
+    restart: "no"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # DEBEZIUM KAFKA CONNECT (CDC)
+  # ───────────────────────────────────────────────────────────────────────────
+  debezium:
+    image: quay.io/debezium/connect:2.4
+    container_name: debezium
+    networks:
+      - platform-net
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: my_connect_configs
+      OFFSET_STORAGE_TOPIC: my_connect_offsets
+      STATUS_STORAGE_TOPIC: my_connect_statuses
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mongo-init-replica:
+        condition: service_completed_successfully
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # REDIS
+  # ───────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    networks:
+      - platform-net
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # POSTGRES (State store for LangGraph financial-agent)
+  # ───────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    networks:
+      - platform-net
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: langgraph
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d langgraph"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # EVENT SERVER (Node.js API + Socket.IO)
+  # ───────────────────────────────────────────────────────────────────────────
+  event-server:
+    build:
+      context: ./event-server
+      dockerfile: Dockerfile
+    container_name: event-server
+    networks:
+      - platform-net
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: "4000"
+      MONGODB_URI: "mongodb://admin:password@mongodb:27017/flinkdb?authSource=admin"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      KAFKA_BROKERS: "kafka:9092"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # CHAT SERVER (Dedicated WebSocket Microservice)
+  # ───────────────────────────────────────────────────────────────────────────
+  chat-server:
+    build:
+      context: ./chat-server
+      dockerfile: Dockerfile
+    container_name: chat-server
+    networks:
+      - platform-net
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: "5000"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      MONGODB_URI: "mongodb://admin:password@mongodb:27017/flinkdb?authSource=admin"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # FINANCIAL AGENT (FastAPI AI Microservice)
+  # ───────────────────────────────────────────────────────────────────────────
+  financial-agent:
+    build:
+      context: ./financial-agent
+      dockerfile: Dockerfile
+    container_name: financial-agent
+    networks:
+      - platform-net
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - S3_BUCKET_NAME=agent-drift-telemetry
+    restart: unless-stopped
+    command: ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # DRIFT DASHBOARD (Streamlit Showcase)
+  # ───────────────────────────────────────────────────────────────────────────
+  drift-dashboard:
+    build:
+      context: ./drift-dashboard
+      dockerfile: Dockerfile
+    container_name: drift-dashboard
+    networks:
+      - platform-net
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+
+#  # ───────────────────────────────────────────────────────────────────────────
+#  # FLINK JOB MANAGER
+#  # ───────────────────────────────────────────────────────────────────────────
+#  flink-jobmanager:
+#    build:
+#      context: ./flink-jobs
+#      dockerfile: Dockerfile
+#    container_name: flink-jobmanager
+#    networks:
+#      - platform-net
+#    ports:
+#      - "8081:8081"   # Flink Web UI
+#    command: jobmanager
+#    environment:
+#      - |
+#        FLINK_PROPERTIES=
+#        jobmanager.rpc.address=flink-jobmanager
+#        jobmanager.memory.process.size=1024m
+#        rest.address=0.0.0.0
+#        rest.port=8081
+#    volumes:
+#      - flink-checkpoints:/tmp/checkpoints
+#    depends_on:
+#      kafka:
+#        condition: service_healthy
+#      mongodb:
+#        condition: service_healthy
+#      redis:
+#        condition: service_healthy
+#    healthcheck:
+#      test: ["CMD", "curl", "-f", "http://localhost:8081/overview"]
+#      interval: 15s
+#      timeout: 10s
+#      retries: 10
+#      start_period: 30s
+#    restart: unless-stopped
+#
+#  # ───────────────────────────────────────────────────────────────────────────
+#  # FLINK TASK MANAGER
+#  # ───────────────────────────────────────────────────────────────────────────
+#  flink-taskmanager:
+#    build:
+#      context: ./flink-jobs
+#      dockerfile: Dockerfile
+#    container_name: flink-taskmanager
+#    networks:
+#      - platform-net
+#    command: taskmanager
+#    environment:
+#      - |
+#        FLINK_PROPERTIES=
+#        jobmanager.rpc.address=flink-jobmanager
+#        taskmanager.memory.process.size=2048m
+#        taskmanager.numberOfTaskSlots=6
+#    volumes:
+#      - flink-checkpoints:/tmp/checkpoints
+#    depends_on:
+#      flink-jobmanager:
+#        condition: service_healthy
+#    restart: unless-stopped
+#
+#  # ───────────────────────────────────────────────────────────────────────────
+#  # FLINK JOB SUBMITTER — Short-term profiling
+#  # Submits the PyFlink job after JobManager is ready
+#  # ───────────────────────────────────────────────────────────────────────────
+#  flink-short-term:
+#    build:
+#      context: ./flink-jobs
+#      dockerfile: Dockerfile
+#    container_name: flink-short-term
+#    networks:
+#      - platform-net
+#    command: >
+#      bash -c "
+#        echo 'Waiting for JobManager...';
+#        until curl -s http://flink-jobmanager:8081/overview > /dev/null; do
+#          sleep 5;
+#        done;
+#        echo 'Submitting short-term job...';
+#        /opt/flink/bin/flink run --jobmanager flink-jobmanager:6123 -py /opt/flink/usrlib/short_term_profiling.py;
+#      "
+#    environment:
+#      - |
+#        FLINK_PROPERTIES=
+#        jobmanager.rpc.address=flink-jobmanager
+#    depends_on:
+#      flink-taskmanager:
+#        condition: service_started
+#      kafka-init:
+#        condition: service_completed_successfully
+#    restart: "no"
+#
+#  # ───────────────────────────────────────────────────────────────────────────
+#  # FLINK JOB SUBMITTER — Medium-term profiling
+#  # ───────────────────────────────────────────────────────────────────────────
+#  flink-medium-term:
+#    build:
+#      context: ./flink-jobs
+#      dockerfile: Dockerfile
+#    container_name: flink-medium-term
+#    networks:
+#      - platform-net
+#    command: >
+#      bash -c "
+#        echo 'Waiting for JobManager...';
+#        until curl -s http://flink-jobmanager:8081/overview > /dev/null; do
+#          sleep 5;
+#        done;
+#        echo 'Submitting medium-term job...';
+#        /opt/flink/bin/flink run --jobmanager flink-jobmanager:6123 -py /opt/flink/usrlib/src/profiling/medium_term_profiling.py;
+#      "
+#    environment:
+#      - |
+#        FLINK_PROPERTIES=
+#        jobmanager.rpc.address=flink-jobmanager
+#    depends_on:
+#      flink-taskmanager:
+#        condition: service_started
+#      kafka-init:
+#        condition: service_completed_successfully
+#    restart: "no"
+#
+#  # ───────────────────────────────────────────────────────────────────────────
+#  # FLINK JOB SUBMITTER — Long-term profiling
+#  # ───────────────────────────────────────────────────────────────────────────
+#  flink-long-term:
+#    build:
+#      context: ./flink-jobs
+#      dockerfile: Dockerfile
+#    container_name: flink-long-term
+#    networks:
+#      - platform-net
+#    command: >
+#      bash -c "
+#        echo 'Waiting for JobManager...';
+#        until curl -s http://flink-jobmanager:8081/overview > /dev/null; do
+#          sleep 5;
+#        done;
+#        echo 'Submitting long-term job...';
+#        /opt/flink/bin/flink run --jobmanager flink-jobmanager:6123 -py /opt/flink/usrlib/src/profiling/long_term_profiling.py;
+#      "
+#    environment:
+#      - |
+#        FLINK_PROPERTIES=
+#        jobmanager.rpc.address=flink-jobmanager
+#    depends_on:
+#      flink-taskmanager:
+#        condition: service_started
+#      kafka-init:
+#        condition: service_completed_successfully
+#    restart: "no"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # FLINK SIMILAR-GROUPING — JobManager
+  # Separate Flink cluster for similarity + grouping jobs
+  # ───────────────────────────────────────────────────────────────────────────
+  flink-sg-jobmanager:
+    build:
+      context: ./flink-jobs
+      dockerfile: Dockerfile
+    container_name: flink-sg-jobmanager
+    networks:
+      - platform-net
+    ports:
+      - "8082:8081"   # Flink Web UI for similar-grouping cluster
+    command: jobmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-sg-jobmanager
+        jobmanager.memory.process.size: 1024m
+        rest.address: 0.0.0.0
+        rest.port: 8081
+        akka.framesize: 2147483647b
+        pekko.framesize: 2147483647b
+        rest.client.max-content-length: 2147483647
+        rest.server.max-content-length: 2147483647
+        akka.ask.timeout: 120s
+        pekko.ask.timeout: 120s
+        python.executable: /usr/bin/python3
+    volumes:
+      - flink-checkpoints:/tmp/checkpoints
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/overview"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # FLINK SIMILAR-GROUPING — TaskManager
+  # ───────────────────────────────────────────────────────────────────────────
+  flink-sg-taskmanager:
+    build:
+      context: ./flink-jobs
+      dockerfile: Dockerfile
+    container_name: flink-sg-taskmanager
+    networks:
+      - platform-net
+    command: taskmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-sg-jobmanager
+        taskmanager.memory.process.size: 2048m
+        taskmanager.numberOfTaskSlots: 4
+        akka.framesize: 2147483647b
+        pekko.framesize: 2147483647b
+        rest.client.max-content-length: 2147483647
+        rest.server.max-content-length: 2147483647
+        akka.ask.timeout: 120s
+        pekko.ask.timeout: 120s
+        python.executable: /usr/bin/python3
+    volumes:
+      - flink-checkpoints:/tmp/checkpoints
+    depends_on:
+      flink-sg-jobmanager:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # FLINK JOB SUBMITTER — Jaccard Similarity (pair matching)
+  # ───────────────────────────────────────────────────────────────────────────
+  flink-similarity:
+    build:
+      context: ./flink-jobs
+      dockerfile: Dockerfile
+    container_name: flink-similarity
+    networks:
+      - platform-net
+    command: >
+      bash -c "
+        echo 'Waiting for sg-JobManager...';
+        until curl -sf http://flink-sg-jobmanager:8081/overview > /dev/null; do
+          sleep 5;
+        done;
+        sleep 3;
+        echo 'Submitting similarity job...';
+        /opt/flink/bin/flink run --detached --jobmanager flink-sg-jobmanager:8081 -py /opt/flink/usrlib/src/similarity/jaccard_lsh_job.py;
+        echo 'Similarity job submitted!';
+      "
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-sg-jobmanager
+        akka.framesize: 2147483647b
+        pekko.framesize: 2147483647b
+        rest.client.max-content-length: 2147483647
+        rest.server.max-content-length: 2147483647
+        akka.ask.timeout: 120s
+        pekko.ask.timeout: 120s
+        python.executable: /usr/bin/python3
+    depends_on:
+      flink-sg-taskmanager:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+#  # ───────────────────────────────────────────────────────────────────────────
+#  # FLINK JOB SUBMITTER — Grouping (match users to existing groups)
+#  # ───────────────────────────────────────────────────────────────────────────
+#  flink-grouping:
+#    build:
+#      context: ./flink-jobs
+#      dockerfile: Dockerfile
+#    container_name: flink-grouping
+#    networks:
+#      - platform-net
+#    command: >
+#      bash -c "
+#        echo 'Waiting for sg-JobManager...';
+#        until curl -sf http://flink-sg-jobmanager:8081/overview > /dev/null; do
+#          sleep 5;
+#        done;
+#        sleep 15;
+#        echo 'Submitting grouping job...';
+#        /opt/flink/bin/flink run --detached --jobmanager flink-sg-jobmanager:6123 -py /opt/flink/usrlib/src/similarity/group_matching_job.py;
+#        echo 'Grouping job submitted!';
+#      "
+#    environment:
+#      FLINK_PROPERTIES: |
+#        jobmanager.rpc.address: flink-sg-jobmanager
+#        akka.framesize: 2147483647b
+#        pekko.framesize: 2147483647b
+#        rest.client.max-content-length: 2147483647
+#        rest.server.max-content-length: 2147483647
+#        akka.ask.timeout: 120s
+#        pekko.ask.timeout: 120s
+#        python.executable: /usr/bin/python3
+#    depends_on:
+#      flink-sg-taskmanager:
+#        condition: service_started
+#      kafka-init:
+#        condition: service_completed_successfully
+#    restart: "no"
+
+

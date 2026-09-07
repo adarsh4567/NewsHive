@@ -29,6 +29,9 @@ Your task is to analyze financial news text and extract:
 5. If no companies found: use tavily_search with query describing the news topic to identify relevant sectors
 6. After gathering ticker and sector information, MUST call stock_tool with ONLY the tickers array: stock_tool(tickers=["TICKER1", "TICKER2"])
 
+**CRITICAL INSTRUCTION:** 
+You must rely STRICTLY AND ONLY on the results returned by your search tools. If a search tool returns a ticker symbol for a company, you MUST extract it and use it, even if your internal training data tells you the company is private or unlisted. Do not let your internal knowledge override the real-time search results.
+
 **Output Format:**
 After using the search tool to gather all necessary information and calling stock_tool, return ONLY a valid JSON object with this exact structure:
 {

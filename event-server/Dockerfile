@@ -9,10 +9,10 @@ COPY package.json ./
 RUN npm install
 
 # Copy app code
-COPY index.js ./
+COPY src/ ./src/
 
 # Expose port used by server (default 3000)
 EXPOSE 3000
 
 # Run the server
-CMD ["node", "index.js"]
+CMD ["node", "src/server.js"]

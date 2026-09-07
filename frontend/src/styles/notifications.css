@@ -1,0 +1,98 @@
+/* NOTIFICATIONS */
+.notif-panel {
+  position: fixed;
+  top: 72px; right: 24px;
+  width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  overflow: hidden;
+  animation: slideIn 0.25s ease;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.notif-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.notif-header h3 { font-size: 0.95rem; font-weight: 700; }
+.close-btn-sm {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.2s;
+}
+.close-btn-sm:hover { color: var(--text); }
+
+.notif-empty {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+.notif-empty p { font-size: 0.95rem; font-weight: 500; margin-bottom: 6px; color: var(--text-sub); }
+.notif-empty span { font-size: 0.8rem; }
+
+.notif-list { overflow-y: auto; flex: 1; }
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  transition: background 0.2s;
+}
+.notif-item:hover { background: var(--surface-2); }
+.notif-item.unread { background: rgba(99,102,241,0.05); }
+.notif-item.read { opacity: 0.7; }
+
+.notif-icon {
+  font-size: 1.4rem;
+  width: 40px; height: 40px;
+  background: var(--surface-2);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.notif-body { flex: 1; }
+.notif-title { font-size: 0.87rem; font-weight: 700; margin-bottom: 4px; color: var(--text); }
+.notif-sub { font-size: 0.78rem; color: var(--text-sub); line-height: 1.4; margin-bottom: 10px; }
+.notif-sub code {
+  background: rgba(99,102,241,0.15);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.73rem;
+  color: #a5b4fc;
+}
+
+.accept-btn {
+  background: var(--accent-gradient);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: opacity 0.2s, transform 0.15s;
+}
+.accept-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+.joined-label { font-size: 0.78rem; color: var(--success); font-weight: 600; }
+
+.unread-dot {
+  position: absolute;
+  top: 18px; right: 14px;
+  width: 8px; height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--accent);
+}
