@@ -1,6 +1,11 @@
 <div align="center">
+<<<<<<< HEAD
   
 # 🌌 NewsHive - Collaborative News Discovery
+=======
+
+# 🌌 NewsHive: Real-time Social Finance & Agentic AI
+>>>>>>> 2ecb48e (docs: integrate LangGraph stock analysis agent into features)
 
 ### A production-grade distributed system featuring an autonomous Financial Analyst Agent, real-time social networking, and a pioneering **Agentic Drift Telemetry** engine for MLOps observability.
 
@@ -21,15 +26,13 @@
 
 ## 💡 The Problem This Solves
 
-Deploying an AI agent is easy. **Knowing when it starts to break — silently — is incredibly hard.**
+Deploying an AI agent is easy. **Knowing when it starts to break — silently — is incredibly hard.** Furthermore, static financial news feeds are rapidly becoming obsolete in an era where users demand real-time social collaboration and personalized, deep-dive insights.
 
-Most production AI systems have zero observability into *how* an agent reasons. They can't detect when a model enters a hallucination loop, starts over-relying on expensive external API calls, or subtly drifts from its original behavior baseline — until it's too late.
+This platform, **NewsHive**, addresses these gaps by combining massive data streaming with cutting-edge AI. It is a full-scale distributed system modeled after real-world infrastructure at companies like Discord or Bloomberg, featuring:
 
-This platform addresses that gap. It's a full-scale distributed system modeled after real-world infrastructure at companies like Discord or Bloomberg, combining:
-
-- A fully autonomous **Financial Analyst Agent** powered by LangGraph
-- A **Discord/WhatsApp-inspired chat system** with WebSockets and Redis Pub/Sub
+- A **Discord/WhatsApp-inspired collaborative chat system** with WebSockets and Redis Pub/Sub
 - A **real-time personalization engine** using Kafka, Apache Flink, and Jaccard LSH
+- A fully autonomous **Financial Analyst Agent** providing on-demand stock recommendations
 - And at its core: an **Agentic Drift Telemetry System** — a custom MLOps layer that monitors, scores, and alerts on AI behavioral degradation in real time
 
 ---
@@ -64,45 +67,54 @@ The platform runs as a fully containerized microservices stack orchestrated by D
 
 ## ✨ Core Innovations
 
-### 1. 🔬 Agentic Drift Telemetry — The MLOps Differentiator
+### 1. 📈 Autonomous Financial Analyst (On-Demand Stock Intelligence)
+
+Generic LLM chatbots lack the precision required for financial analysis. NewsHive integrates a dedicated **Multi-Agent System powered by LangGraph** that operates autonomously to deliver institutional-grade stock recommendations.
+
+**How it works:**
+- Users request a deep dive on a specific ticker or market trend.
+- The agent dynamically traverses a reasoning graph, invoking specialized tools like `yfinance` for real-time market data and `Tavily Search` for breaking news sentiment.
+- It synthesizes this multi-modal data into a highly structured, actionable investment thesis, delivered seamlessly to the user.
+
+---
+
+### 2. 🔬 Agentic Drift Telemetry (The MLOps Differentiator)
 
 > *"You can't improve what you can't measure."*
 
 This is the flagship feature of the platform. While other AI projects simply call an LLM, this system **instruments the agent's internal reasoning** to detect behavioral drift before it impacts users.
 
 **How it works:**
-- A custom `DriftTelemetryWrapper` wraps LangGraph's execution graph, intercepting every reasoning step, tool invocation, and state mutation
-- Each event is streamed to a structured JSONL telemetry log with timestamps and execution metadata
+- A custom `DriftTelemetryWrapper` wraps LangGraph's execution graph, intercepting every reasoning step, tool invocation, and state mutation.
+- Each event is streamed to a structured JSONL telemetry log with timestamps and execution metadata.
 - A Streamlit dashboard computes **dynamic Z-scores** against a behavioral baseline, triggering alerts when the agent deviates — catching issues like:
-  - 🔁 **Hallucination loops** — repeated reasoning steps with no forward progress
-  - 💸 **API over-reliance** — excessive calls to expensive tools like Tavily Search or yfinance
-  - 📉 **Behavioral drift** — statistically significant deviation from the agent's expected behavior profile
-
-**Why it matters:** This is the kind of observability layer that separates a demo project from a production-ready AI system.
+  - 🔁 **Hallucination loops** — repeated reasoning steps with no forward progress.
+  - 💸 **API over-reliance** — excessive calls to expensive tools like Tavily Search or yfinance.
+  - 📉 **Behavioral drift** — statistically significant deviation from the agent's expected behavior profile.
 
 ---
 
-### 2. ⚡ Real-Time Personalization Engine
+### 3. ⚡ Real-Time Personalization Engine
 
 A recommendation pipeline delivering personalized financial news with sub-second latency.
 
 **How it works:**
-- User interactions are captured by a Node.js Event Server and published to **Apache Kafka** via Change Data Capture (CDC)
-- **Apache Flink** consumes the stream and applies **Jaccard LSH (Locality-Sensitive Hashing)** to compute content similarity matrices on the fly
-- The resulting recommendations are pushed back to the frontend in real time — no page reload, no batch delay
+- User interactions are captured by a Node.js Event Server and published to **Apache Kafka** via Change Data Capture (CDC).
+- **Apache Flink** consumes the stream and applies **Jaccard LSH (Locality-Sensitive Hashing)** to compute content similarity matrices on the fly.
+- The resulting recommendations are pushed back to the frontend in real time — no page reload, no batch delay.
 
-**The challenge it solves:** Traditional recommendation engines run batch jobs on hourly or daily cycles. This pipeline reacts to user behavior within milliseconds.
+**The challenge it solves:** Traditional recommendation engines run batch jobs on hourly or daily cycles. This pipeline reacts to user behavior within milliseconds, keeping the social feed hyper-relevant.
 
 ---
 
-### 3. 💬 High-Scale Chat Architecture
+### 4. 💬 High-Scale Chat Architecture
 
 A production-grade messaging system inspired by Discord and WhatsApp, supporting both 1:1 and broadcast messaging.
 
 **How it works:**
-- A dedicated **Node.js Chat Server** manages persistent WebSocket connections for real-time message delivery
-- **Redis Pub/Sub** handles fan-out across server instances, enabling horizontal scaling without sticky sessions
-- **MongoDB** provides horizontally scalable, schema-flexible message storage with efficient range queries on conversation history
+- A dedicated **Node.js Chat Server** manages persistent WebSocket connections for real-time message delivery.
+- **Redis Pub/Sub** handles fan-out across server instances, enabling horizontal scaling without sticky sessions.
+- **MongoDB** provides horizontally scalable, schema-flexible message storage with efficient range queries on conversation history.
 
 ---
 
