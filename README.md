@@ -1,11 +1,6 @@
 <div align="center">
-<<<<<<< HEAD
   
-# 🌌 NewsHive - Collaborative News Discovery
-=======
-
-# 🌌 NewsHive: Real-time Social Finance & Agentic AI
->>>>>>> 2ecb48e (docs: integrate LangGraph stock analysis agent into features)
+## 🌌 NewsHive - Collaborative News Discovery
 
 ### A production-grade distributed system featuring an autonomous Financial Analyst Agent, real-time social networking, and a pioneering **Agentic Drift Telemetry** engine for MLOps observability.
 
