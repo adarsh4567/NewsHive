@@ -1,5 +1,6 @@
 <div align="center">
-# 🌌 Financial AI & Agentic Drift Platform
+  
+# 🌌 NewsHive - Collaborative News Discovery
 
 ### A production-grade distributed system featuring an autonomous Financial Analyst Agent, real-time social networking, and a pioneering **Agentic Drift Telemetry** engine for MLOps observability.
 
