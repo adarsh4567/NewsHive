@@ -71,6 +71,8 @@ Generic LLM chatbots lack the precision required for financial analysis. NewsHiv
 - The agent dynamically traverses a reasoning graph, invoking specialized tools like `yfinance` for real-time market data and `Tavily Search` for breaking news sentiment.
 - It synthesizes this multi-modal data into a highly structured, actionable investment thesis, delivered seamlessly to the user.
 
+https://github.com/user-attachments/assets/6daeeceb-a425-4831-a740-98441874f61c
+
 ---
 
 ### 2. 🔬 Agentic Drift Telemetry (The MLOps Differentiator)
@@ -110,6 +112,9 @@ A production-grade messaging system inspired by Discord and WhatsApp, supporting
 - A dedicated **Node.js Chat Server** manages persistent WebSocket connections for real-time message delivery.
 - **Redis Pub/Sub** handles fan-out across server instances, enabling horizontal scaling without sticky sessions.
 - **MongoDB** provides horizontally scalable, schema-flexible message storage with efficient range queries on conversation history.
+
+https://github.com/user-attachments/assets/5ff4e2b1-ab95-46a6-bbe2-b56a97e02591
+
 
 ---
 
