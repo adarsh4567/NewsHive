@@ -1,3 +1,4 @@
+<img width="1301" height="713" alt="Screenshot 2026-09-08 at 1 28 48 AM" src="https://github.com/user-attachments/assets/d11d126f-e6a3-4bb5-ad9e-a418261af50e" />
 <div align="center">
   
 # 🌌 Financial AI & Agentic Drift Platform
@@ -26,13 +27,7 @@ It features an on-demand **Financial Analyst Agent** powered by LangGraph, but t
 
 ## 🏗️ Architecture Overview
 
-The platform operates on a robust microservices architecture orchestrated by Docker Compose:
-
-<p align="center">
-  <img width="840" height="622" alt="architecture" src="docs/architecture.png" />
-</p>
-
-*Presentation link: [https://ai-news-app-rho.vercel.app](https://ai-news-app-rho.vercel.app)*
+![Uploading Screenshot 2026-09-08 at 1.28.48 AM.png…]()
 
 ---
 
