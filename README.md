@@ -1,99 +1,200 @@
+<div align="center">
 # 🌌 Financial AI & Agentic Drift Platform
 
-**A distributed, production-grade microservices architecture featuring an autonomous financial agent, real-time social networking, and pioneering "Agentic Drift" telemetry.**
+### A production-grade distributed system featuring an autonomous Financial Analyst Agent, real-time social networking, and a pioneering **Agentic Drift Telemetry** engine for MLOps observability.
 
-[![Docker](https://img.shields.io/badge/Docker-Enabled-blue.svg)](https://www.docker.com/)
-[![Apache Flink](https://img.shields.io/badge/Apache%20Flink-Streaming-E6522C)](https://flink.apache.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-On%20Demand-009688)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-Frontend-61DAFB)](https://reactjs.org/)
+<br/>
 
-[View Architecture](#architecture) • [Core Features](#core-features) • [Tech Stack](#tech-stack) • [Getting Started](#getting-started)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Apache Flink](https://img.shields.io/badge/Apache%20Flink-Stream%20Processing-E6522C?logo=apacheflink&logoColor=white)](https://flink.apache.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Agent%20Backend-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react&logoColor=white)](https://reactjs.org/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-Agentic%20AI-FF6B35)](https://www.langchain.com/langgraph)
+[![Kafka](https://img.shields.io/badge/Apache%20Kafka-Event%20Streaming-231F20?logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
+
+[Architecture](#️-architecture) • [Core Innovations](#-core-innovations) • [Tech Stack](#️-technology-stack) • [Getting Started](#-getting-started) • [Roadmap](#-roadmap)
+
 </div>
 
 ---
 
-## 💡 The Hook: Why This Project Exists
+## 💡 The Problem This Solves
 
-In the era of Autonomous AI, deploying an agent is easy—but **monitoring its behavioral degradation in production is incredibly hard.** 
+Deploying an AI agent is easy. **Knowing when it starts to break — silently — is incredibly hard.**
 
-This project goes beyond a standard "chat with a document" app. It is a full-scale, distributed system built to mimic the infrastructure of giants like Facebook or Discord, combined with cutting-edge MLOps. 
+Most production AI systems have zero observability into *how* an agent reasons. They can't detect when a model enters a hallucination loop, starts over-relying on expensive external API calls, or subtly drifts from its original behavior baseline — until it's too late.
 
-It features an on-demand **Financial Analyst Agent** powered by LangGraph, but the true innovation lies in its **Agentic Drift Telemetry System**. Every reasoning step, tool invocation, and state mutation the agent makes is captured, streamed, and analyzed to detect "hallucination loops", API over-reliance, and behavioral drift in real-time.
+This platform addresses that gap. It's a full-scale distributed system modeled after real-world infrastructure at companies like Discord or Bloomberg, combining:
+
+- A fully autonomous **Financial Analyst Agent** powered by LangGraph
+- A **Discord/WhatsApp-inspired chat system** with WebSockets and Redis Pub/Sub
+- A **real-time personalization engine** using Kafka, Apache Flink, and Jaccard LSH
+- And at its core: an **Agentic Drift Telemetry System** — a custom MLOps layer that monitors, scores, and alerts on AI behavioral degradation in real time
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ Architecture
 
-<img width="1301" height="713" alt="Screenshot 2026-09-08 at 1 28 48 AM" src="https://github.com/user-attachments/assets/d11d126f-e6a3-4bb5-ad9e-a418261af50e" />
-<div align="center">
+The platform runs as a fully containerized microservices stack orchestrated by Docker Compose.
+
+<p align="center">
+  <img width="1301" height="713" alt="System Architecture Diagram" src="https://github.com/user-attachments/assets/d11d126f-e6a3-4bb5-ad9e-a418261af50e" />
+</p>
+
+<details>
+<summary><strong>Service Breakdown</strong></summary>
+
+| Service | Role |
+|---|---|
+| **FastAPI Agent Server** | Hosts the LangGraph financial analyst agent; exposes REST endpoints |
+| **Node.js Event Server** | Captures user interactions; emits CDC events to Kafka |
+| **Node.js Chat Server** | WebSocket-based real-time messaging with Redis Pub/Sub |
+| **Apache Kafka** | Central event broker for all inter-service communication |
+| **Apache Flink** | Stream processor for personalization and LSH similarity scoring |
+| **Apache Spark** | Batch analytics and data ingestion |
+| **MongoDB** | Horizontally scalable storage for messages and user data |
+| **Redis** | In-memory caching, session state, and Pub/Sub for chat |
+| **Streamlit Dashboard** | Real-time Agentic Drift visualization and alerting |
+| **React + Vite Frontend** | User-facing app with personalized feed and chat UI |
+
+</details>
 
 ---
 
 ## ✨ Core Innovations
 
-### 1. 🤖 Agentic Drift Telemetry (The MLOps Differentiator)
-* **What it does:** Tracks how the AI agent's behavior changes over time compared to a baseline.
-* **How it works:** A custom `DriftTelemetryWrapper` intercepts LangGraph execution sequences and streams them to a JSONL log. 
-* **The Dashboard:** A beautiful, grid-based Streamlit dashboard calculates dynamic Z-scores to immediately alert engineers if the agent is stuck in reasoning loops or overusing expensive APIs (like Tavily Search or yfinance).
+### 1. 🔬 Agentic Drift Telemetry — The MLOps Differentiator
 
-### 2. ⚡ Real-Time Personalization & Social Feed
-* **What it does:** Delivers a personalized financial news feed dynamically.
-* **How it works:** Utilizes a Node.js Event Server tied to Kafka for Change Data Capture (CDC). As users interact with the app, Apache Flink streams process the events, applying Jaccard LSH (Locality-Sensitive Hashing) to calculate similarity matrices and recommend content with ultra-low latency.
+> *"You can't improve what you can't measure."*
+
+This is the flagship feature of the platform. While other AI projects simply call an LLM, this system **instruments the agent's internal reasoning** to detect behavioral drift before it impacts users.
+
+**How it works:**
+- A custom `DriftTelemetryWrapper` wraps LangGraph's execution graph, intercepting every reasoning step, tool invocation, and state mutation
+- Each event is streamed to a structured JSONL telemetry log with timestamps and execution metadata
+- A Streamlit dashboard computes **dynamic Z-scores** against a behavioral baseline, triggering alerts when the agent deviates — catching issues like:
+  - 🔁 **Hallucination loops** — repeated reasoning steps with no forward progress
+  - 💸 **API over-reliance** — excessive calls to expensive tools like Tavily Search or yfinance
+  - 📉 **Behavioral drift** — statistically significant deviation from the agent's expected behavior profile
+
+**Why it matters:** This is the kind of observability layer that separates a demo project from a production-ready AI system.
+
+---
+
+### 2. ⚡ Real-Time Personalization Engine
+
+A recommendation pipeline delivering personalized financial news with sub-second latency.
+
+**How it works:**
+- User interactions are captured by a Node.js Event Server and published to **Apache Kafka** via Change Data Capture (CDC)
+- **Apache Flink** consumes the stream and applies **Jaccard LSH (Locality-Sensitive Hashing)** to compute content similarity matrices on the fly
+- The resulting recommendations are pushed back to the frontend in real time — no page reload, no batch delay
+
+**The challenge it solves:** Traditional recommendation engines run batch jobs on hourly or daily cycles. This pipeline reacts to user behavior within milliseconds.
+
+---
 
 ### 3. 💬 High-Scale Chat Architecture
-* **What it does:** Enables one-to-one and one-to-many messaging, inspired by Discord and WhatsApp.
-* **How it works:** Built on a dedicated Node.js Chat Server utilizing WebSockets, Redis for Pub/Sub and session state, and MongoDB for horizontally scalable message storage.
+
+A production-grade messaging system inspired by Discord and WhatsApp, supporting both 1:1 and broadcast messaging.
+
+**How it works:**
+- A dedicated **Node.js Chat Server** manages persistent WebSocket connections for real-time message delivery
+- **Redis Pub/Sub** handles fan-out across server instances, enabling horizontal scaling without sticky sessions
+- **MongoDB** provides horizontally scalable, schema-flexible message storage with efficient range queries on conversation history
 
 ---
 
 ## 🛠️ Technology Stack
 
 | Domain | Technologies |
-| :--- | :--- |
+|---|---|
 | **Agentic AI & MLOps** | Python, LangGraph, LangChain, FastAPI, Streamlit, Pandas |
 | **Backend & APIs** | Node.js, Express.js, WebSockets |
-| **Streaming & Big Data** | Apache Kafka, Apache Flink, Apache Spark |
+| **Event Streaming & Big Data** | Apache Kafka, Apache Flink, Apache Spark |
 | **Databases & Caching** | MongoDB, Redis |
-| **Frontend** | React, Vite, Tailwind CSS / Vanilla CSS |
-| **DevOps** | Docker, Docker Compose |
+| **Frontend** | React, Vite, Tailwind CSS |
+| **DevOps & Infra** | Docker, Docker Compose |
+| **External AI APIs** | Anthropic Claude, Google Gemini, Tavily Search, yfinance |
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Docker & Docker Compose
-- API Keys for the AI Agent (Tavily, Anthropic, Gemini)
+
+- [Docker](https://docs.docker.com/get-docker/) & Docker Compose
+- API keys for: **Anthropic**, **Gemini**, and **Tavily**
 
 ### Quickstart
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/adarsh4567/project-2.git
-   cd project-2
-   ```
+```bash
+# 1. Clone the repository
+git clone https://github.com/adarsh4567/project-2.git
+cd project-2
 
-2. **Environment Variables**
-   Set up your `.env` file at the root with your API keys.
+# 2. Configure environment variables
+cp .env.example .env
+# Fill in your API keys in .env
 
-3. **Launch the Infrastructure**
-   ```bash
-   # Spin up the core databases, brokers, and backends
-   docker compose up -d
-   ```
+# 3. Launch all services
+docker compose up -d
+```
 
-4. **Access the Services**
-   - **Frontend App:** `http://localhost:5173`
-   - **Agentic Drift Dashboard:** `http://localhost:8501`
-   - **FastAPI Agent Docs:** `http://localhost:8000/docs`
+### Service Endpoints
+
+| Service | URL |
+|---|---|
+| 🖥️ **Frontend App** | http://localhost:5173 |
+| 🔬 **Agentic Drift Dashboard** | http://localhost:8501 |
+| 📄 **FastAPI Agent Docs** | http://localhost:8000/docs |
+
+### Environment Variables
+
+```env
+ANTHROPIC_API_KEY=your_anthropic_key
+GEMINI_API_KEY=your_gemini_key
+TAVILY_API_KEY=your_tavily_key
+```
 
 ---
 
-## 📈 Future Improvements
+## 📁 Project Structure
 
-See [`docs/improvement.md`](docs/improvement.md) for the roadmap, including scaling out the chat server partitions and optimizing the Spark jobs for massive data ingestion.
+```
+project-2/
+├── agent/                  # LangGraph Financial Analyst Agent (FastAPI)
+│   ├── drift_telemetry/    # DriftTelemetryWrapper & JSONL logger
+│   └── dashboard/          # Streamlit drift monitoring dashboard
+├── chat-server/            # Node.js WebSocket chat backend
+├── event-server/           # Node.js Kafka CDC event producer
+├── flink-jobs/             # Apache Flink stream processing jobs (LSH)
+├── spark-jobs/             # Apache Spark batch analytics
+├── frontend/               # React + Vite user interface
+├── docs/                   # Architecture diagrams and improvement roadmap
+└── docker-compose.yml      # Full stack orchestration
+```
 
 ---
+
+## 📈 Roadmap
+
+See [`docs/improvement.md`](docs/improvement.md) for the full roadmap. Highlights include:
+
+- [ ] Horizontal scaling of the chat server with partition-aware Kafka consumers
+- [ ] Optimizing Spark ingestion jobs for high-volume financial data
+- [ ] Expanding drift metrics to include token-level cost tracking
+- [ ] Adding a replay mechanism to re-run agent sessions for debugging
+
+---
+
+## 🔗 Links
+
+- 📊 **Architecture Presentation:** [ai-news-app-rho.vercel.app](https://ai-news-app-rho.vercel.app)
+- 📖 **Improvement Roadmap:** [`docs/improvement.md`](docs/improvement.md)
+
+---
+
 <div align="center">
-  <i>Built to demonstrate production-ready System Design, Big Data Streaming, and cutting-edge MLOps.</i>
+  <sub>Built to demonstrate production-ready System Design, Big Data Streaming, and MLOps-grade AI observability.</sub>
 </div>
