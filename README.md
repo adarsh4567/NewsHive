@@ -1,6 +1,3 @@
-<img width="1301" height="713" alt="Screenshot 2026-09-08 at 1 28 48 AM" src="https://github.com/user-attachments/assets/d11d126f-e6a3-4bb5-ad9e-a418261af50e" />
-<div align="center">
-  
 # 🌌 Financial AI & Agentic Drift Platform
 
 **A distributed, production-grade microservices architecture featuring an autonomous financial agent, real-time social networking, and pioneering "Agentic Drift" telemetry.**
@@ -27,7 +24,8 @@ It features an on-demand **Financial Analyst Agent** powered by LangGraph, but t
 
 ## 🏗️ Architecture Overview
 
-![Uploading Screenshot 2026-09-08 at 1.28.48 AM.png…]()
+<img width="1301" height="713" alt="Screenshot 2026-09-08 at 1 28 48 AM" src="https://github.com/user-attachments/assets/d11d126f-e6a3-4bb5-ad9e-a418261af50e" />
+<div align="center">
 
 ---
 
